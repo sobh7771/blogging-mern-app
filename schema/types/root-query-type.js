@@ -5,6 +5,7 @@ const User = require('../../models/user');
 const { isLoggedIn } = require('../../utils');
 const BlogType = require('./blog-type');
 const Blog = require('../../models/blog');
+const BlogResultType = require('./blog-result-type');
 
 const { GraphQLObjectType, GraphQLList, GraphQLNonNull, GraphQLInt } = graphql;
 
@@ -31,9 +32,30 @@ const RootQueryType = new GraphQLObjectType({
 			},
 		},
 		blogs: {
-			type: new GraphQLList(BlogType),
-			resolve(source, args, req, info) {
-				return Blog.find();
+			type: BlogResultType,
+			args: {
+				cursor: {
+					type: GraphQLInt,
+					defaultValue: 0,
+				},
+				limit: {
+					type: GraphQLInt,
+					defaultValue: 3,
+				},
+			},
+			async resolve(source, { cursor, limit }, req, info) {
+				const count = await Blog.find().countDocuments();
+
+				const data = await Blog.find().skip(cursor).limit(limit);
+				const len = data.length;
+				let nextCursor = len + cursor;
+
+				if (nextCursor >= count) nextCursor = null;
+
+				return {
+					data,
+					nextCursor,
+				};
 			},
 		},
 		followed: {
